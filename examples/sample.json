@@ -1,0 +1,30 @@
+{
+  "sources": [
+    {
+      "name": "example",
+      "values": {
+        "api": {
+          "timeout": 10,
+          "url": "/v1"
+        }
+      }
+    },
+    {
+      "name": "docs",
+      "values": {
+        "api": {
+          "timeout": 20
+        }
+      }
+    },
+    {
+      "name": "manifest",
+      "values": {
+        "api": {
+          "timeout": 10,
+          "url": "/v2"
+        }
+      }
+    }
+  ]
+}
