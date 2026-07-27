@@ -18,6 +18,10 @@ def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
     names = [str(item.get("name", "")) for item in sources]
     if any(not name for name in names) or len(names) != len(set(names)):
         raise ValueError("configuration sources need unique names")
+    baseline_raw: Any = data.get("baseline")
+    baseline = str(baseline_raw) if baseline_raw is not None else None
+    if baseline is not None and baseline not in names:
+        raise ValueError("baseline must name one of the configuration sources")
     flattened: dict[str, dict[str, Any]] = {}
     for source in sources:
         values = source.get("values", {})
@@ -33,17 +37,41 @@ def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
                 flat[prefix] = value
         flattened[source["name"]] = flat
     keys = sorted({key for values in flattened.values() for key in values})
-    rows = []
+    rows: list[dict[str, Any]] = []
     for key in keys:
         values = {name: flattened[name].get(key, "[missing]") for name in names}
+        encoded = {name: json.dumps(value, sort_keys=True) for name, value in values.items()}
+        missing_sources = [name for name in names if key not in flattened[name]]
+        reference = str(baseline) if baseline is not None else names[0]
+        differing_sources = [name for name in names if encoded[name] != encoded[reference]]
+        drift = len(set(encoded.values())) > 1
         rows.append(
             {
                 "key": key,
                 "values": values,
-                "drift": len({json.dumps(value, sort_keys=True) for value in values.values()}) > 1,
+                "drift": drift,
+                "classification": "missing"
+                if missing_sources
+                else "changed"
+                if drift
+                else "consistent",
+                "missing_sources": missing_sources,
+                "differing_from_baseline": differing_sources,
             }
         )
-    return {"sources": names, "keys": rows, "drift_count": sum(item["drift"] for item in rows)}
+    return {
+        "sources": names,
+        "baseline": baseline,
+        "keys": rows,
+        "drift_count": sum(item["drift"] for item in rows),
+        "missing_by_source": {
+            name: sum(name in item["missing_sources"] for item in rows) for name in names
+        },
+        "classification_counts": {
+            state: sum(item["classification"] == state for item in rows)
+            for state in ("consistent", "changed", "missing")
+        },
+    }
 
 
 def analyze(data: dict[str, Any]) -> dict[str, Any]:

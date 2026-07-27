@@ -12,7 +12,7 @@ config-drift examples/sample.json
 config-drift examples/sample.json --format json --output report.json
 ```
 
-The example documents the v1 input shape. Existing report files are never overwritten. Source inputs are read-only except where the documented purpose explicitly creates a new output artifact.
+The example documents the input shape. Version 1.1 accepts an optional `baseline` source name, classifies each key as consistent, changed, or missing, and reports differing/missing sources plus aggregate counts. Existing report files are never overwritten. Source inputs are read-only except where the documented purpose explicitly creates a new output artifact.
 
 ## Privacy and platforms
 
