@@ -22,6 +22,9 @@ def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
     baseline = str(baseline_raw) if baseline_raw is not None else None
     if baseline is not None and baseline not in names:
         raise ValueError("baseline must name one of the configuration sources")
+    recursive = data.get("recursive", False)
+    if not isinstance(recursive, bool):
+        raise TypeError("recursive must be a boolean")
     flattened: dict[str, dict[str, Any]] = {}
     for source in sources:
         values = source.get("values", {})
@@ -36,11 +39,18 @@ def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
             else:
                 flat[prefix] = value
         flattened[source["name"]] = flat
+    if recursive:
+        flattened = _pointer_values(sources)
     keys = sorted({key for values in flattened.values() for key in values})
     rows: list[dict[str, Any]] = []
     for key in keys:
         values = {name: flattened[name].get(key, "[missing]") for name in names}
-        encoded = {name: json.dumps(value, sort_keys=True) for name, value in values.items()}
+        encoded = {
+            name: json.dumps(
+                [key in flattened[name], value] if recursive else value, sort_keys=True
+            )
+            for name, value in values.items()
+        }
         missing_sources = [name for name in names if key not in flattened[name]]
         reference = str(baseline) if baseline is not None else names[0]
         differing_sources = [name for name in names if encoded[name] != encoded[reference]]
@@ -60,6 +70,7 @@ def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
             }
         )
     return {
+        **({"comparison": "json-pointer"} if recursive else {}),
         "sources": names,
         "baseline": baseline,
         "keys": rows,
@@ -95,3 +106,27 @@ def render_markdown(report: dict[str, Any]) -> str:
                 ]
             )
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _pointer_values(sources: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Descend shared objects; compare arrays and object/scalar boundaries atomically."""
+    result: dict[str, dict[str, Any]] = {source["name"]: {} for source in sources}
+    if not all(isinstance(source.get("values", {}), dict) for source in sources):
+        raise ValueError("recursive source values must be JSON objects")
+
+    def visit(pointer: str, present: dict[str, Any]) -> None:
+        if len(present) == len(sources) and all(isinstance(v, dict) for v in present.values()):
+            keys = sorted({key for value in present.values() for key in value})
+            if keys:
+                for key in keys:
+                    escaped = key.replace("~", "~0").replace("/", "~1")
+                    visit(
+                        pointer + "/" + escaped,
+                        {name: value[key] for name, value in present.items() if key in value},
+                    )
+                return
+        for name, value in present.items():
+            result[name][pointer] = value
+
+    visit("", {source["name"]: source.get("values", {}) for source in sources})
+    return result

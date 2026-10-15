@@ -36,3 +36,9 @@ python -m build
 The project is feature-complete for its documented v1 scope. Maintenance focuses on correctness, security, compatibility, and well-supported input improvements.
 
 Part of the [Logan Pendragon Forge open-source collection](https://www.loganpendragonforge.com/open-source/). Licensed under the [MIT License](LICENSE).
+
+## Recursive JSON Pointer comparison
+
+Set `"recursive": true` in the input JSON to opt in. Shared objects are compared recursively using JSON Pointer escaping (`~` becomes `~0`, `/` becomes `~1`); arrays remain whole values. Empty objects remain visible. Missing values are identified by `missing_sources`, separately from `null` and the literal string `[missing]`.
+
+When a path changes between an object and a scalar, or an entire object is absent in a source, that boundary is compared as one value rather than inventing missing descendants. An empty pointer denotes the root when all sources are empty objects. Keys are sorted, source order is preserved, and `baseline` still explicitly selects the reference. Without this option, existing dotted-key reports stay unchanged. This compares supplied JSON only and does not inspect deployed systems.

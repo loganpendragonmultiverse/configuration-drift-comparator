@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0 - 2026-10-15
+
+- Add opt-in recursive JSON Pointer comparison with escaped keys, atomic arrays, explicit missing-source evidence and object/scalar boundary comparisons.
+- Preserve legacy dotted-key reports and both peer and designated-baseline comparisons.
+
 ## 1.1.0 - 2026-07-27
 
 - Added optional baseline-source comparisons and per-key drift classifications.
