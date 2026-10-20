@@ -42,3 +42,20 @@ Part of the [Logan Pendragon Forge open-source collection](https://www.loganpend
 Set `"recursive": true` in the input JSON to opt in. Shared objects are compared recursively using JSON Pointer escaping (`~` becomes `~0`, `/` becomes `~1`); arrays remain whole values. Empty objects remain visible. Missing values are identified by `missing_sources`, separately from `null` and the literal string `[missing]`.
 
 When a path changes between an object and a scalar, or an entire object is absent in a source, that boundary is compared as one value rather than inventing missing descendants. An empty pointer denotes the root when all sources are empty objects. Keys are sorted, source order is preserved, and `baseline` still explicitly selects the reference. Without this option, existing dotted-key reports stay unchanged. This compares supplied JSON only and does not inspect deployed systems.
+
+## Input and output guarantees
+
+Sources must be a non-empty array of objects with unique non-blank string names
+and JSON-object values. Values must be finite JSON values; duplicate JSON keys
+are rejected rather than silently overwritten. A supplied baseline must be a
+source-name string. Invalid input returns exit 2.
+
+Missing keys remain distinct from the literal `[missing]` in both comparison
+modes. Legacy dotted-key collisions are rejected; use `recursive: true` for
+literal dotted keys that overlap nested paths, empty objects and exact key names.
+Legacy mode retains its historical flattening and omits empty objects.
+
+Report files are created exclusively, so another writer or an existing symlink
+cannot cause an existing file or the source input to be overwritten. The tool
+compares supplied values and does not hide secrets from reports: review input
+before sharing output. It does not inspect running deployments or choose truth.

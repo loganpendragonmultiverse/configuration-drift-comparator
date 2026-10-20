@@ -5,3 +5,8 @@ Compare configuration examples, code expectations, documentation, and manifests 
 Version 1.1 adds optional baseline comparisons, per-key classifications, and missing-source summaries without declaring a source authoritative implicitly.
 
 Preserve deterministic, source-safe behavior and the interpretation boundary documented in the README. Every feature release must update tests, version metadata, changelog, README claims, repository metadata, release assets, and the Forge catalog together.
+
+The v1.2.1 audit closes malformed-source coercion, missing-sentinel ambiguity,
+legacy flattened-key collision and report destination races. Preserve the exact
+JSON Pointer mode for unambiguous nested data; malformed input is never evidence
+of an empty/consistent configuration.
