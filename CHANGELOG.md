@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1 - 2026-10-20
+
+- Reject malformed sources, non-finite values, duplicate JSON keys and ambiguous legacy dotted paths.
+- Distinguish literal missing-marker strings from absent keys in legacy drift counts.
+- Create reports exclusively to preserve existing files during destination races.
+- Document and test source safety, typed input and installed distribution acceptance.
+
 ## 1.2.0 - 2026-10-15
 
 - Add opt-in recursive JSON Pointer comparison with escaped keys, atomic arrays, explicit missing-source evidence and object/scalar boundary comparisons.

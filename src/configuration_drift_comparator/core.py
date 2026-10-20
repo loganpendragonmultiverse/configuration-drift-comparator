@@ -6,30 +6,54 @@ from typing import Any
 PROJECT = "configuration-drift-comparator"
 
 
-def _require(data: dict[str, Any], key: str) -> Any:
-    value = data.get(key)
-    if value is None or value == "" or value == []:
-        raise ValueError(f"{key} is required")
-    return value
+def _sources(data: dict[str, Any]) -> list[dict[str, Any]]:
+    sources = data.get("sources")
+    if not isinstance(sources, list) or not sources:
+        raise ValueError("sources must be a non-empty array")
+    for source in sources:
+        if not isinstance(source, dict):
+            raise TypeError("each configuration source must be an object")
+        name = source.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("configuration sources need non-empty string names")
+        values = source.get("values", {})
+        try:
+            json.dumps(values, allow_nan=False)
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise ValueError("source values must contain finite JSON values") from exc
+        stack = [values]
+        while stack:
+            value = stack.pop()
+            if isinstance(value, dict):
+                if any(not isinstance(key, str) for key in value):
+                    raise ValueError("configuration object keys must be strings")
+                stack.extend(value.values())
+            elif isinstance(value, list):
+                stack.extend(value)
+    return sources
 
 
 def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
-    sources = _require(data, "sources")
-    names = [str(item.get("name", "")) for item in sources]
+    sources = _sources(data)
+    names = [item["name"] for item in sources]
     if any(not name for name in names) or len(names) != len(set(names)):
         raise ValueError("configuration sources need unique names")
     baseline_raw: Any = data.get("baseline")
-    baseline = str(baseline_raw) if baseline_raw is not None else None
+    if baseline_raw is not None and not isinstance(baseline_raw, str):
+        raise ValueError("baseline must be a source name string")
+    baseline = baseline_raw
     if baseline is not None and baseline not in names:
         raise ValueError("baseline must name one of the configuration sources")
     recursive = data.get("recursive", False)
     if not isinstance(recursive, bool):
         raise TypeError("recursive must be a boolean")
     flattened: dict[str, dict[str, Any]] = {}
-    for source in sources:
+    for source in [] if recursive else sources:
         values = source.get("values", {})
+        if not isinstance(values, dict):
+            raise TypeError("source values must be JSON objects")
         stack = [("", values)]
-        flat = {}
+        flat: dict[str, Any] = {}
         while stack:
             prefix, value = stack.pop()
             if isinstance(value, dict):
@@ -37,6 +61,8 @@ def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
                     ((f"{prefix}.{key}".strip("."), nested) for key, nested in value.items())
                 )
             else:
+                if prefix in flat:
+                    raise ValueError("ambiguous dotted keys; use recursive=true")
                 flat[prefix] = value
         flattened[source["name"]] = flat
     if recursive:
@@ -46,9 +72,7 @@ def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
     for key in keys:
         values = {name: flattened[name].get(key, "[missing]") for name in names}
         encoded = {
-            name: json.dumps(
-                [key in flattened[name], value] if recursive else value, sort_keys=True
-            )
+            name: json.dumps([key in flattened[name], value], sort_keys=True)
             for name, value in values.items()
         }
         missing_sources = [name for name in names if key not in flattened[name]]
@@ -86,6 +110,8 @@ def _config_drift(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def analyze(data: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise TypeError("input must be a JSON object")
     return {"version": 1, "project": PROJECT, **_config_drift(data)}
 
 
